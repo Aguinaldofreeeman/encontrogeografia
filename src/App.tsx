@@ -54,6 +54,10 @@ function AlbumContent() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [heroImgError, setHeroImgError] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const activeCategory: PhotoCategory =
     activeView === 'historico' || activeView === 'formatura' || activeView === 'turma'
@@ -70,6 +74,15 @@ function AlbumContent() {
 
   useEffect(() => {
     void recordHomePageView().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (params.get('type') === 'recovery' || hash.get('type') === 'recovery') {
+      setPasswordRecovery(true);
+      setAdminOpen(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -99,7 +112,11 @@ function AlbumContent() {
     };
 
     void supabase.auth.getSession().then(({ data }) => syncUser(data.session?.user ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+        setAdminOpen(true);
+      }
       void syncUser(session?.user ?? null);
     });
     return () => {
@@ -206,6 +223,28 @@ function AlbumContent() {
       showToast(err instanceof Error ? err.message : 'Não foi possível gerar o PDF do álbum.');
     } finally {
       setExportingPdf(false);
+    }
+  };
+
+  const handleSetNewPassword = async () => {
+    if (newPassword.length < 6) { showToast('A senha deve ter ao menos 6 caracteres.'); return; }
+    if (newPassword !== newPasswordConfirm) { showToast('As senhas não coincidem.'); return; }
+    setPasswordSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setPasswordRecovery(false);
+      setNewPassword('');
+      setNewPasswordConfirm('');
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('code');
+      clean.searchParams.delete('type');
+      window.history.replaceState({}, document.title, clean.toString());
+      showToast('Senha atualizada com sucesso.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao atualizar senha.');
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -431,6 +470,48 @@ function AlbumContent() {
         </footer>
       </div>
 
+      {passwordRecovery && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Definir nova senha">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-hairline)] w-full max-w-md p-6 space-y-4 shadow-xl">
+            <div className="space-y-1">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--accent-forest-ink)]">Recuperação de acesso</p>
+              <h3 className="font-serif text-2xl font-semibold text-[var(--text-primary)]">Definir nova senha</h3>
+              <p className="text-sm text-[var(--text-muted)]">Digite sua nova senha para acessar o painel administrativo.</p>
+            </div>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Nova senha (mín. 6 caracteres)"
+              className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
+            />
+            <input
+              type="password"
+              value={newPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
+              placeholder="Confirmar nova senha"
+              className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setPasswordRecovery(false); setNewPassword(''); setNewPasswordConfirm(''); }}
+                className="flex-1 px-4 py-2.5 text-sm border border-[var(--border-hairline)] text-[var(--text-muted)] hover:border-[var(--accent-forest-ink)] transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSetNewPassword}
+                disabled={passwordSaving}
+                className="flex-1 px-4 py-2.5 text-sm bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                {passwordSaving ? 'Salvando...' : 'Salvar senha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <PhotoLightbox photo={selectedPhoto} photosInScope={categoryPhotos} comments={approvedComments} settings={settings} onClose={() => setSelectedPhoto(null)} onSelectPhoto={(next) => setSelectedPhoto(next)} onNotify={showToast} />
       <AdminDrawer isOpen={adminOpen} onClose={() => setAdminOpen(false)} user={user} isAdmin={isAdmin} isBootstrappedAdmin={isBootstrappedAdmin} photos={activePhotos} hasRemotePhotos={hasRemotePhotos} comments={comments} settings={settings} onNotify={showToast} />
       {toast && <div role="status" className="fixed bottom-5 right-5 z-50 bg-[var(--bg-toast)] text-[var(--text-toast)] px-4 py-3 text-xs font-medium border border-[var(--border-hairline)] shadow-lg max-w-sm">{toast}</div>}
