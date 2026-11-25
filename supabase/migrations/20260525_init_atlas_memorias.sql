@@ -168,6 +168,15 @@ create policy "invites admin read" on public.admin_invites for select to authent
 drop policy if exists "invites admin write" on public.admin_invites;
 create policy "invites admin write" on public.admin_invites for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- Grants (RLS still enforces row access)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.photos to anon, authenticated;
+grant select, insert, update, delete on public.comments to anon, authenticated;
+grant select, insert, update, delete on public.settings to anon, authenticated;
+grant select, insert, update, delete on public.stats to anon, authenticated;
+grant select, insert, update, delete on public.admins to anon, authenticated;
+grant select, insert, update, delete on public.admin_invites to anon, authenticated;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('photos', 'photos', true, 6291456, array['image/jpeg','image/png','image/webp','image/jpg'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
