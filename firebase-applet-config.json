@@ -2,11 +2,11 @@
   "projectId": "formandosgeografia",
   "appId": "1:121520995849:web:79cb41ea48a63e632ac2d8",
   "apiKey": "AIzaSyDH-WHZvRJxK6pO19jXNBaruHo0kNWCTNY",
-  "authDomain": "://firebaseapp.com",
+  "authDomain": "formandosgeografia.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "formandosgeografia.firebasestorage.app",
   "messagingSenderId": "121520995849",
   "measurementId": "",
-  "oAuthClientId": "://googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
