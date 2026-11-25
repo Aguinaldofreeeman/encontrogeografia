@@ -83,6 +83,8 @@ export function AdminDrawer({
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [magicLinkEmail, setMagicLinkEmail] = useState('');
+  const [authMode, setAuthMode] = useState<'magic' | 'password'>('password');
+  const [authPassword, setAuthPassword] = useState('');
 
   // Photo form state
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
@@ -186,6 +188,61 @@ export function AdminDrawer({
     setActiveTab('publish');
   };
 
+  const handlePasswordSignIn = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    const email = magicLinkEmail.trim().toLowerCase();
+    const password = authPassword;
+    if (!email) { setAuthError('Informe seu e-mail.'); setAuthLoading(false); return; }
+    if (password.length < 6) { setAuthError('A senha deve ter ao menos 6 caracteres.'); setAuthLoading(false); return; }
+    try {
+      // Try sign in first
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (!signInError) {
+        onNotify('Login realizado com sucesso.');
+        setAuthPassword('');
+        setAuthLoading(false);
+        return;
+      }
+      // If invalid credentials, try sign up (autoconfirm is enabled)
+      if (/invalid|credentials|not found/i.test(signInError.message)) {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) {
+          // If user already exists, it's wrong password
+          if (/already|registered|exists/i.test(signUpError.message)) throw new Error('Senha incorreta. Use "Esqueci a senha" ou tente novamente.');
+          throw signUpError;
+        }
+        const { error: retryError } = await supabase.auth.signInWithPassword({ email, password });
+        if (retryError) throw retryError;
+        onNotify('Conta criada e login realizado.');
+        setAuthPassword('');
+        setAuthLoading(false);
+        return;
+      }
+      throw signInError;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao autenticar.';
+      setAuthError(msg);
+    }
+    setAuthLoading(false);
+  };
+
+  const handlePasswordReset = async () => {
+    setAuthLoading(true);
+    setAuthError(null);
+    const email = magicLinkEmail.trim().toLowerCase();
+    if (!email) { setAuthError('Informe seu e-mail para redefinir a senha.'); setAuthLoading(false); return; }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` });
+      if (error) throw error;
+      onNotify('Se o e-mail existir, você receberá um link para redefinir a senha.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao solicitar redefinição de senha.';
+      setAuthError(msg);
+    }
+    setAuthLoading(false);
+  };
+
   const handleMagicLinkSend = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -197,12 +254,9 @@ export function AdminDrawer({
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: magicLinkEmail.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
+        options: { emailRedirectTo: `${window.location.origin}/` },
       });
       if (error) throw error;
-      // Magic link enviado; avise o usuário
       onNotify('Link mágico enviado para o e-mail. Verifique a caixa de entrada.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Falha ao enviar link mágico.';
@@ -213,6 +267,7 @@ export function AdminDrawer({
 
   const handleMagicLinkCancel = () => {
     setMagicLinkEmail('');
+    setAuthPassword('');
     setAuthError(null);
   };
 
@@ -556,8 +611,19 @@ export function AdminDrawer({
                   Acesse com seu e-mail
                 </h3>
                 <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                  Receba um link mágico no seu e-mail para acessar o painel administrativo.
+                  Entre com e-mail e senha. Na primeira vez, a conta será criada automaticamente com a senha informada.
                 </p>
+              </div>
+
+              <div className="flex gap-2 text-xs">
+                <button type="button" onClick={() => { setAuthMode('password'); setAuthError(null); }}
+                  className={`px-3 py-1.5 border transition-colors cursor-pointer ${authMode === 'password' ? 'bg-[var(--btn-active-bg)] text-[var(--btn-active-text)] border-[var(--btn-active-bg)]' : 'border-[var(--border-hairline)] text-[var(--text-muted)]'}`}>
+                  E-mail e senha
+                </button>
+                <button type="button" onClick={() => { setAuthMode('magic'); setAuthError(null); }}
+                  className={`px-3 py-1.5 border transition-colors cursor-pointer ${authMode === 'magic' ? 'bg-[var(--btn-active-bg)] text-[var(--btn-active-text)] border-[var(--btn-active-bg)]' : 'border-[var(--border-hairline)] text-[var(--text-muted)]'}`}>
+                  Link mágico
+                </button>
               </div>
 
               {authError && (
@@ -567,65 +633,58 @@ export function AdminDrawer({
               )}
 
               {authLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin w-4 h-4 text-[var(--accent-forest)]"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8 8 8 0 018 8 8 8 0 01-8 8 8 8 0 01-8-8zm0 0a4 4 0 100-8 4 4 0 000 8z"
-                    />
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <svg className="animate-spin w-4 h-4 text-[var(--accent-forest)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                   </svg>
-                  <span className="ml-2">Enviando...</span>
+                  <span className="text-sm text-[var(--text-muted)]">Aguarde...</span>
                 </div>
               ) : (
-                <div>
+                <div className="space-y-3">
                   <input
                     type="email"
                     value={magicLinkEmail}
                     onChange={(e) => setMagicLinkEmail(e.target.value)}
                     placeholder="seu@email.com"
                     className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
-                    required
                   />
+                  {authMode === 'password' && (
+                    <input
+                      type="password"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      placeholder="Senha (mín. 6 caracteres)"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
+                    />
+                  )}
                   <button
                     type="button"
-                    onClick={handleMagicLinkSend}
+                    onClick={authMode === 'password' ? handlePasswordSignIn : handleMagicLinkSend}
                     disabled={authLoading}
-                    className="w-full mt-2 inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-sm font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-sm font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer"
                   >
-                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-                    {authLoading ? 'Enviando...' : 'Enviar link mágico'}
+                    <LogIn className="w-4 h-4 shrink-0" />
+                    {authMode === 'password' ? 'Entrar / Criar conta' : 'Enviar link mágico'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleMagicLinkCancel}
-                    className="w-full mt-2 text-xs text-[var(--text-muted)] border border-[var(--border-hairline)] py-1.5 rounded text-center hover:border-[var(--accent-forest-ink)] transition-colors cursor-pointer whitespace-nowrap"
-                  >
-                    Cancelar
+                  {authMode === 'password' && (
+                    <button type="button" onClick={handlePasswordReset} disabled={authLoading}
+                      className="w-full text-xs text-[var(--text-muted)] hover:text-[var(--accent-forest-ink)] transition-colors cursor-pointer">
+                      Esqueci a senha / redefinir por e-mail
+                    </button>
+                  )}
+                  <button type="button" onClick={handleMagicLinkCancel}
+                    className="w-full text-xs text-[var(--text-muted)] border border-[var(--border-hairline)] py-1.5 rounded text-center hover:border-[var(--accent-forest-ink)] transition-colors cursor-pointer whitespace-nowrap">
+                    Limpar
                   </button>
+                  {authMode === 'magic' && (
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Se aparecer “email rate limit exceeded”, aguarde 1 minuto ou use “E-mail e senha”.
+                    </p>
+                  )}
                 </div>
               )}
-
-              {authError && (
-                <p className="text-xs mt-2 bg-[var(--feedback-error-bg)] border border-[var(--feedback-error-border)] text-[var(--feedback-error-text)] p-3">
-                  {authError}
-                </p>
-              )}
-
-              </div>
+            </div>
           ) : !isAdmin ? (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-hairline)] p-8 max-w-lg mx-auto my-8 space-y-4">
               <div className="flex items-center gap-2 text-[var(--accent-terracotta)]">
