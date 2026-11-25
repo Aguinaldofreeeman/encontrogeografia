@@ -283,8 +283,9 @@ export function AdminDrawer({
     setCompressing(true);
     try {
       const compressed = await compressImageFile(file);
-      setImageUrl(compressed);
-      onNotify('Imagem otimizada e pronta para publicação.');
+      setImageUrl(compressed.dataUrl);
+      const kb = Math.max(1, Math.round(compressed.bytes / 1024));
+      onNotify(`Imagem otimizada: ${kb} KB, ${compressed.width}×${compressed.height}, ${compressed.format.toUpperCase()}.`);
     } catch (err) {
       setPhotoError(err instanceof Error ? err.message : 'Erro ao processar arquivo.');
     } finally {
@@ -372,8 +373,8 @@ export function AdminDrawer({
         const file = new File([blob], `${seed.id}.jpg`, {
           type: blob.type || 'image/jpeg',
         });
-        const dataUrl = await compressImageFile(file);
-        const uploaded = await uploadPhotoToStorage(dataUrl, {
+        const compressed = await compressImageFile(file);
+        const uploaded = await uploadPhotoToStorage(compressed.dataUrl, {
           category: seed.category,
           title: seed.title,
         });

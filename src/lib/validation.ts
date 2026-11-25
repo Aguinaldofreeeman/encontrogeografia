@@ -5,8 +5,9 @@ import { CommentRelation, PhotoCategory, PhotoVisibility } from '../types';
  * `imageUrlMax` limita o valor salvo no banco (URL pública ou data URL temporária antes do upload).
  */
 export const UPLOAD_BOUNDS = {
-  maxDimension: 2000,
-  maxDataUrlChars: 3_400_000,
+  maxDimension: 1600,
+  targetBytes: 450_000,
+  maxDataUrlChars: 2_400_000,
 };
 
 export const VALIDATION_BOUNDS = {
@@ -108,7 +109,20 @@ export function sanitizeId(raw: string): string {
   return cleaned || `reg-${Date.now()}`;
 }
 
-export async function compressImageFile(file: File): Promise<string> {
+export interface CompressedImageResult {
+  dataUrl: string;
+  width: number;
+  height: number;
+  bytes: number;
+  format: 'webp' | 'jpeg';
+}
+
+function estimateDataUrlBytes(dataUrl: string): number {
+  const base64 = dataUrl.split(',')[1] || '';
+  return Math.ceil((base64.length * 3) / 4);
+}
+
+export async function compressImageFile(file: File): Promise<CompressedImageResult> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Selecione um arquivo de imagem válido (JPG, PNG ou WebP).');
   }
@@ -116,11 +130,8 @@ export async function compressImageFile(file: File): Promise<string> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Não foi possível ler o arquivo selecionado.'));
-      }
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('Não foi possível ler o arquivo selecionado.'));
     };
     reader.onerror = () => reject(new Error('Erro ao ler a imagem do dispositivo.'));
     reader.readAsDataURL(file);
@@ -151,26 +162,30 @@ export async function compressImageFile(file: File): Promise<string> {
   canvas.width = targetWidth;
   canvas.height = targetHeight;
   const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('Não foi possível processar a imagem no navegador.');
-  }
-
+  if (!ctx) throw new Error('Não foi possível processar a imagem no navegador.');
   ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-  const qualities = [0.86, 0.76, 0.64, 0.52];
+  const qualities = [0.82, 0.72, 0.62, 0.52, 0.42];
+  let best: CompressedImageResult | null = null;
+
+  const consider = (candidate: string, format: 'webp' | 'jpeg') => {
+    if (!candidate.startsWith('data:image/')) return;
+    const bytes = estimateDataUrlBytes(candidate);
+    if (bytes > UPLOAD_BOUNDS.maxDataUrlChars) return;
+    const next: CompressedImageResult = { dataUrl: candidate, width: targetWidth, height: targetHeight, bytes, format };
+    if (!best || bytes < best.bytes) best = next;
+  };
+
   for (const quality of qualities) {
-    const compressed = canvas.toDataURL('image/webp', quality);
-    if (
-      compressed.length <= UPLOAD_BOUNDS.maxDataUrlChars &&
-      compressed.startsWith('data:image/')
-    ) {
-      return compressed;
-    }
-    const jpegFallback = canvas.toDataURL('image/jpeg', quality);
-    if (jpegFallback.length <= UPLOAD_BOUNDS.maxDataUrlChars) {
-      return jpegFallback;
-    }
+    consider(canvas.toDataURL('image/webp', quality), 'webp');
+    if (best && (best as CompressedImageResult).bytes <= UPLOAD_BOUNDS.targetBytes) return best;
+  }
+  // JPEG fallback only if WebP didn't hit target (handles rare browsers / alpha-flattened cases)
+  for (const quality of qualities) {
+    consider(canvas.toDataURL('image/jpeg', quality), 'jpeg');
+    if (best && (best as CompressedImageResult).bytes <= UPLOAD_BOUNDS.targetBytes) return best;
   }
 
-  throw new Error('A imagem excede o limite máximo após compressão. Utilize uma foto menor ou informe uma URL.');
+  if (best) return best as CompressedImageResult;
+  throw new Error('A imagem excede o limite máximo após compressão. Utilize uma foto menor ou recorte antes de enviar.');
 }
