@@ -244,6 +244,12 @@
           "maxLength": 50,
           "description": "Rótulo do indicador de origem acadêmica."
         },
+        "statViewsLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Rótulo do contador de visualizações da página inicial."
+        },
         "searchPlaceholder": {
           "type": "string",
           "minLength": 2,
@@ -378,6 +384,72 @@
         "role",
         "createdAt"
       ]
+    },
+    "AlbumStats": {
+      "title": "AlbumStats",
+      "description": "Contadores agregados de visualizações da página inicial do blog.",
+      "type": "object",
+      "properties": {
+        "totalViews": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000,
+          "description": "Total acumulado de acessos à página inicial."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na última atualização do contador."
+        }
+      },
+      "required": [
+        "totalViews",
+        "updatedAt"
+      ]
+    },
+    "AdminInvite": {
+      "title": "AdminInvite",
+      "description": "Convite de administrador autorizado por e-mail Google para vinculação automática de UID no primeiro login.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 120,
+          "description": "E-mail Google normalizado em minúsculas do administrador autorizado."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nome de exibição do administrador convidado."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "description": "Papel administrativo concedido."
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID do administrador que criou a autorização."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na criação."
+        }
+      },
+      "required": [
+        "email",
+        "displayName",
+        "role",
+        "createdByUid",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
@@ -404,6 +476,18 @@
         "$ref": "#/entities/AdminUser"
       },
       "description": "Lista de administradores autorizados a publicar fotos e moderar comentários."
+    },
+    "/adminInvites/{inviteId}": {
+      "schema": {
+        "$ref": "#/entities/AdminInvite"
+      },
+      "description": "Autorizações administrativas por e-mail Google para vinculação automática de UID."
+    },
+    "/stats/{statId}": {
+      "schema": {
+        "$ref": "#/entities/AlbumStats"
+      },
+      "description": "Métricas agregadas do blog, incluindo o contador de visualizações em /stats/album."
     }
   }
 }

@@ -59,6 +59,7 @@ export interface AlbumSettings {
   statGuidesLabel: string;
   statCommentsLabel: string;
   statInstitutionLabel: string;
+  statViewsLabel?: string;
   searchPlaceholder: string;
   commentsKicker: string;
   commentsTitle: string;
@@ -76,6 +77,15 @@ export interface AdminUserItem {
   email: string;
   displayName: string;
   role: 'admin';
+  createdAtMs: number;
+}
+
+export interface AdminInviteItem {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'admin';
+  createdByUid: string;
   createdAtMs: number;
 }
 

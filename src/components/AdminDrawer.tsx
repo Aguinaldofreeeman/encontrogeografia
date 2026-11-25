@@ -24,20 +24,23 @@ import { CATEGORY_META, DEFAULT_SETTINGS } from '../data/seedData';
 import { BOOTSTRAPPED_ADMIN_EMAIL, auth, googleProvider } from '../lib/firebase';
 import { compressImageFile, isAllowedImageUrl, VALIDATION_BOUNDS } from '../lib/validation';
 import {
-  addAdminUser,
+  addAdminInvite,
   createPhoto,
   deleteComment,
   deletePhoto,
   moderateComment,
+  removeAdminInvite,
   removeAdminUser,
   saveAlbumSettings,
   saveSeedPhotoToFirestore,
   seedInitialAlbumIfEmpty,
+  subscribeAdminInvites,
   subscribeAdmins,
   updateCommentContent,
   updatePhoto,
 } from '../services/blogService';
 import {
+  AdminInviteItem,
   AdminUserItem,
   AlbumSettings,
   CommentItem,
@@ -111,7 +114,7 @@ export function AdminDrawer({
 
   // Admin management state
   const [adminsList, setAdminsList] = useState<AdminUserItem[]>([]);
-  const [newAdminUid, setNewAdminUid] = useState('');
+  const [adminInvitesList, setAdminInvitesList] = useState<AdminInviteItem[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
   const [addingAdmin, setAddingAdmin] = useState(false);
@@ -125,12 +128,20 @@ export function AdminDrawer({
 
   useEffect(() => {
     if (!isOpen || !isBootstrappedAdmin) return;
-    const unsub = subscribeAdmins(
+    const unsubAdmins = subscribeAdmins(
       true,
       (list) => setAdminsList(list),
       () => {}
     );
-    return () => unsub();
+    const unsubInvites = subscribeAdminInvites(
+      true,
+      (list) => setAdminInvitesList(list),
+      () => {}
+    );
+    return () => {
+      unsubAdmins();
+      unsubInvites();
+    };
   }, [isOpen, isBootstrappedAdmin]);
 
   if (!isOpen) return null;
@@ -360,32 +371,41 @@ export function AdminDrawer({
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBootstrappedAdmin) return;
+    if (!isBootstrappedAdmin || !user) return;
     setAddingAdmin(true);
     try {
-      await addAdminUser({
-        uid: newAdminUid,
+      await addAdminInvite({
         email: newAdminEmail,
         displayName: newAdminName,
+        createdByUid: user.uid,
       });
-      setNewAdminUid('');
       setNewAdminEmail('');
       setNewAdminName('');
-      onNotify('Administrador adicionado com sucesso.');
+      onNotify('E-mail autorizado como administrador. O UID será vinculado automaticamente no primeiro login.');
     } catch (err) {
-      onNotify(err instanceof Error ? err.message : 'Erro ao adicionar administrador.');
+      onNotify(err instanceof Error ? err.message : 'Erro ao autorizar administrador.');
     } finally {
       setAddingAdmin(false);
     }
   };
 
-  const handleRemoveAdmin = async (uid: string) => {
+  const handleRemoveAdmin = async (uid: string, email: string) => {
     if (!isBootstrappedAdmin) return;
     try {
-      await removeAdminUser(uid);
+      await removeAdminUser(uid, email);
       onNotify('Permissão administrativa removida.');
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao remover administrador.');
+    }
+  };
+
+  const handleRemoveInvite = async (inviteId: string) => {
+    if (!isBootstrappedAdmin) return;
+    try {
+      await removeAdminInvite(inviteId);
+      onNotify('Autorização por e-mail removida.');
+    } catch (err) {
+      onNotify(err instanceof Error ? err.message : 'Erro ao remover autorização.');
     }
   };
 
@@ -485,7 +505,7 @@ export function AdminDrawer({
                 Conta sem permissão administrativa
               </h3>
               <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas ({BOOTSTRAPPED_ADMIN_EMAIL} ou cadastradas pela administração) podem publicar fotografias e editar o álbum.
+                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas ({BOOTSTRAPPED_ADMIN_EMAIL} ou e-mails liberados na administração) podem publicar fotografias e editar o álbum. Peça ao administrador principal para liberar o seu e-mail Google no Painel Admin.
               </p>
               <div className="bg-[var(--bg-canvas)] border border-[var(--border-hairline)] p-3 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -1369,6 +1389,20 @@ export function AdminDrawer({
                         </label>
 
                         <label className="block space-y-1.5">
+                          <span className="text-xs font-medium text-[var(--text-muted)]">Rótulo do indicador de visualizações</span>
+                          <input
+                            type="text"
+                            required
+                            maxLength={VALIDATION_BOUNDS.settings.statLabelMax}
+                            value={settingsForm.statViewsLabel ?? DEFAULT_SETTINGS.statViewsLabel ?? 'Visualizações'}
+                            onChange={(e) =>
+                              setSettingsForm({ ...settingsForm, statViewsLabel: e.target.value })
+                            }
+                            className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
+                          />
+                        </label>
+
+                        <label className="block space-y-1.5 sm:col-span-2">
                           <span className="text-xs font-medium text-[var(--text-muted)]">Rótulo da instituição</span>
                           <input
                             type="text"
@@ -1634,48 +1668,42 @@ export function AdminDrawer({
                           Administradores Adicionais
                         </h3>
                         <p className="text-xs text-[var(--text-muted)]">
-                          Adicione colegas pelo UID exibido quando eles tentarem entrar na Área Admin.
+                          Adicione colegas apenas pelo e-mail Google. Quando entrarem na Área Admin, o UID é vinculado automaticamente.
                         </p>
                       </div>
 
-                      <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <input
-                          type="text"
-                          required
-                          value={newAdminUid}
-                          onChange={(e) => setNewAdminUid(e.target.value)}
-                          placeholder="UID do usuário"
-                          className="px-3 py-2 text-xs font-mono bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
-                        />
+                      <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input
                           type="email"
                           required
+                          maxLength={120}
                           value={newAdminEmail}
                           onChange={(e) => setNewAdminEmail(e.target.value)}
-                          placeholder="E-mail Google"
+                          placeholder="E-mail Google do colega"
                           className="px-3 py-2 text-xs bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
                         />
                         <div className="flex gap-2">
                           <input
                             type="text"
                             required
+                            maxLength={120}
                             value={newAdminName}
                             onChange={(e) => setNewAdminName(e.target.value)}
-                            placeholder="Nome"
+                            placeholder="Nome completo"
                             className="flex-1 min-w-0 px-3 py-2 text-xs bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
                           />
                           <button
                             type="submit"
                             disabled={addingAdmin}
-                            className="inline-flex items-center gap-1 px-3 py-2 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-xs font-medium hover:bg-[var(--accent-forest-hover)] cursor-pointer shrink-0"
+                            className="inline-flex items-center gap-1 px-3 py-2 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-xs font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 cursor-pointer shrink-0"
                           >
                             <UserPlus className="w-3.5 h-3.5" />
-                            Adicionar
+                            {addingAdmin ? 'Salvando...' : 'Adicionar'}
                           </button>
                         </div>
                       </form>
 
-                      {adminsList.length > 0 && (
+                      {(adminsList.length > 0 || adminInvitesList.length > 0) && (
                         <div className="divide-y divide-[var(--border-soft)] border border-[var(--border-hairline)]">
                           {adminsList.map((adm) => (
                             <div
@@ -1685,13 +1713,13 @@ export function AdminDrawer({
                               <div className="min-w-0">
                                 <p className="font-medium text-[var(--text-primary)]">{adm.displayName}</p>
                                 <p className="text-[var(--text-muted)] truncate">
-                                  {adm.email} · <span className="font-mono">{adm.uid}</span>
+                                  {adm.email} · <span className="font-mono text-[var(--accent-forest-ink)]">UID vinculado</span>
                                 </p>
                               </div>
                               {adm.uid !== user.uid && (
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveAdmin(adm.uid)}
+                                  onClick={() => handleRemoveAdmin(adm.uid, adm.email)}
                                   className="px-2.5 py-1 border border-[var(--border-hairline)] text-[var(--accent-terracotta)] hover:bg-[var(--feedback-error-bg)] cursor-pointer shrink-0"
                                 >
                                   Remover
@@ -1699,6 +1727,33 @@ export function AdminDrawer({
                               )}
                             </div>
                           ))}
+                          {adminInvitesList
+                            .filter(
+                              (inv) =>
+                                !adminsList.some(
+                                  (adm) => adm.email.trim().toLowerCase() === inv.email.trim().toLowerCase()
+                                )
+                            )
+                            .map((inv) => (
+                              <div
+                                key={inv.id}
+                                className="p-3 flex items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <p className="font-medium text-[var(--text-primary)]">{inv.displayName}</p>
+                                  <p className="text-[var(--text-muted)] truncate">
+                                    {inv.email} · <span className="font-mono text-[var(--accent-terracotta)]">Aguardando primeiro acesso</span>
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveInvite(inv.id)}
+                                  className="px-2.5 py-1 border border-[var(--border-hairline)] text-[var(--accent-terracotta)] hover:bg-[var(--feedback-error-bg)] cursor-pointer shrink-0"
+                                >
+                                  Remover
+                                </button>
+                              </div>
+                            ))}
                         </div>
                       )}
                     </div>

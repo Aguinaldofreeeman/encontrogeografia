@@ -45,6 +45,7 @@ export const DEFAULT_SETTINGS: AlbumSettings = {
   statGuidesLabel: 'Guias temáticas',
   statCommentsLabel: 'Mensagens publicadas',
   statInstitutionLabel: 'Origem acadêmica',
+  statViewsLabel: 'Visualizações',
   searchPlaceholder: 'Buscar por título ou localização...',
   commentsKicker: 'Caderno de Campo & Divulgação',
   commentsTitle: 'Mural de Mensagens e Compartilhamento',

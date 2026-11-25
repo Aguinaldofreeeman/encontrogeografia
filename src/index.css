@@ -55,6 +55,14 @@
   --feedback-error-text: #9A3412;
 
   --grid-line: rgba(27, 30, 27, 0.035);
+
+  --sidebar-bg: #0D3D38;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-text: #F4FBF9;
+  --sidebar-text-muted: #B6D4CE;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-active-bar: #F59E0B;
 }
 
 .dark {
@@ -105,6 +113,14 @@
   --feedback-error-text: #F29C79;
 
   --grid-line: rgba(237, 232, 220, 0.045);
+
+  --sidebar-bg: #092925;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-text: #EDF7F4;
+  --sidebar-text-muted: #98BEB6;
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.13);
+  --sidebar-active-bar: #F59E0B;
 }
 
 @layer base {
@@ -135,6 +151,21 @@
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-view-enter {
+  animation: viewFadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

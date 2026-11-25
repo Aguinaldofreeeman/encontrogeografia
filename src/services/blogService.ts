@@ -5,6 +5,7 @@ import {
   getDoc,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -21,6 +22,7 @@ import {
 } from '../lib/firebase';
 import { isAllowedImageUrl, VALIDATION_BOUNDS } from '../lib/validation';
 import {
+  AdminInviteItem,
   AdminUserItem,
   AlbumSettings,
   CommentItem,
@@ -43,15 +45,63 @@ function toMillis(ts: unknown): number {
   return Date.now();
 }
 
-export async function checkIsAdminUser(uid: string, email: string | null, emailVerified: boolean): Promise<boolean> {
+export function emailToInviteId(email: string): string {
+  return email
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, VALIDATION_BOUNDS.idMax);
+}
+
+export async function checkIsAdminUser(
+  uid: string,
+  email: string | null,
+  emailVerified: boolean,
+  displayName?: string | null
+): Promise<boolean> {
   if (!emailVerified) return false;
-  if (email === BOOTSTRAPPED_ADMIN_EMAIL) return true;
-  const path = `admins/${uid}`;
+  const normalizedEmail = email?.trim().toLowerCase() ?? '';
+  if (normalizedEmail === BOOTSTRAPPED_ADMIN_EMAIL.toLowerCase()) return true;
+
+  const adminPath = `admins/${uid}`;
   try {
     const snap = await getDoc(doc(db, 'admins', uid));
-    return snap.exists();
+    if (snap.exists()) {
+      return true;
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, path);
+    handleFirestoreError(error, OperationType.GET, adminPath);
+  }
+
+  if (!normalizedEmail) return false;
+  const inviteId = emailToInviteId(normalizedEmail);
+  if (inviteId.length < 5) return false;
+
+  const invitePath = `adminInvites/${inviteId}`;
+  try {
+    const inviteSnap = await getDoc(doc(db, 'adminInvites', inviteId));
+    if (!inviteSnap.exists()) {
+      return false;
+    }
+    const inviteData = inviteSnap.data();
+    if (String(inviteData.email ?? '').trim().toLowerCase() !== normalizedEmail) {
+      return false;
+    }
+
+    const resolvedName =
+      (typeof inviteData.displayName === 'string' && inviteData.displayName.trim()) ||
+      displayName?.trim() ||
+      normalizedEmail;
+
+    await setDoc(doc(db, 'admins', uid), {
+      email: normalizedEmail.slice(0, 160),
+      displayName: resolvedName.slice(0, 120),
+      role: 'admin',
+      createdAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, invitePath);
   }
 }
 
@@ -200,6 +250,10 @@ export function subscribeAlbumSettings(
         statInstitutionLabel: String(
           data.statInstitutionLabel ?? DEFAULT_SETTINGS.statInstitutionLabel
         ),
+        statViewsLabel:
+          typeof data.statViewsLabel === 'string' && data.statViewsLabel.trim()
+            ? data.statViewsLabel
+            : DEFAULT_SETTINGS.statViewsLabel,
         searchPlaceholder: String(data.searchPlaceholder ?? DEFAULT_SETTINGS.searchPlaceholder),
         commentsKicker: String(data.commentsKicker ?? DEFAULT_SETTINGS.commentsKicker),
         commentsTitle: String(data.commentsTitle ?? DEFAULT_SETTINGS.commentsTitle),
@@ -495,6 +549,9 @@ export async function saveAlbumSettings(authorUid: string, settings: AlbumSettin
   const statInstitutionLabel = settings.statInstitutionLabel
     .trim()
     .slice(0, VALIDATION_BOUNDS.settings.statLabelMax);
+  const statViewsLabel = (settings.statViewsLabel ?? DEFAULT_SETTINGS.statViewsLabel ?? 'Visualizações')
+    .trim()
+    .slice(0, VALIDATION_BOUNDS.settings.statLabelMax);
   const searchPlaceholder = settings.searchPlaceholder
     .trim()
     .slice(0, VALIDATION_BOUNDS.settings.searchPlaceholderMax);
@@ -551,6 +608,7 @@ export async function saveAlbumSettings(authorUid: string, settings: AlbumSettin
     statGuidesLabel.length < VALIDATION_BOUNDS.settings.statLabelMin ||
     statCommentsLabel.length < VALIDATION_BOUNDS.settings.statLabelMin ||
     statInstitutionLabel.length < VALIDATION_BOUNDS.settings.statLabelMin ||
+    statViewsLabel.length < VALIDATION_BOUNDS.settings.statLabelMin ||
     searchPlaceholder.length < VALIDATION_BOUNDS.settings.searchPlaceholderMin ||
     commentsKicker.length < VALIDATION_BOUNDS.settings.commentsKickerMin ||
     commentsTitle.length < VALIDATION_BOUNDS.settings.commentsTitleMin ||
@@ -593,6 +651,7 @@ export async function saveAlbumSettings(authorUid: string, settings: AlbumSettin
       statGuidesLabel,
       statCommentsLabel,
       statInstitutionLabel,
+      statViewsLabel,
       searchPlaceholder,
       commentsKicker,
       commentsTitle,
@@ -678,12 +737,175 @@ export async function addAdminUser(input: {
   }
 }
 
-export async function removeAdminUser(uid: string): Promise<void> {
+export async function removeAdminUser(uid: string, email?: string): Promise<void> {
   const path = `admins/${uid}`;
   try {
     await deleteDoc(doc(db, 'admins', uid));
+    if (email && email.trim()) {
+      const inviteId = emailToInviteId(email);
+      if (inviteId.length >= 5) {
+        await deleteDoc(doc(db, 'adminInvites', inviteId));
+      }
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
+export function subscribeAdminInvites(
+  enabled: boolean,
+  onData: (invites: AdminInviteItem[]) => void,
+  onError: (err: Error) => void
+): () => void {
+  if (!enabled) {
+    onData([]);
+    return () => {};
+  }
+  const path = 'adminInvites';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const list: AdminInviteItem[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          email: String(data.email ?? ''),
+          displayName: String(data.displayName ?? ''),
+          role: 'admin',
+          createdByUid: String(data.createdByUid ?? ''),
+          createdAtMs: toMillis(data.createdAt),
+        };
+      });
+      list.sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(list);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, path);
+      } catch (wrapped) {
+        onError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
+      }
+    }
+  );
+}
+
+export async function addAdminInvite(input: {
+  email: string;
+  displayName: string;
+  createdByUid: string;
+}): Promise<void> {
+  const email = input.email.trim().toLowerCase().slice(0, 120);
+  const displayName = input.displayName.trim().slice(0, 120);
+
+  if (email.length < 5 || !email.includes('@') || !email.includes('.')) {
+    throw new Error('Informe um e-mail Google válido.');
+  }
+  if (displayName.length < 1) {
+    throw new Error('Informe o nome do administrador.');
+  }
+
+  const inviteId = emailToInviteId(email);
+  if (!VALIDATION_BOUNDS.idPattern.test(inviteId) || inviteId.length < 5 || inviteId.length > VALIDATION_BOUNDS.idMax) {
+    throw new Error('O e-mail informado não possui um formato válido para convite.');
+  }
+
+  const path = `adminInvites/${inviteId}`;
+  try {
+    await setDoc(doc(db, 'adminInvites', inviteId), {
+      email,
+      displayName,
+      role: 'admin',
+      createdByUid: input.createdByUid,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function removeAdminInvite(inviteId: string): Promise<void> {
+  const path = `adminInvites/${inviteId}`;
+  try {
+    await deleteDoc(doc(db, 'adminInvites', inviteId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+let homeViewRecordedInMemory = false;
+const HOME_VIEW_SESSION_KEY = 'atlas_home_view_recorded';
+
+export function subscribeHomePageViews(
+  onData: (totalViews: number) => void,
+  onError: (err: Error) => void
+): () => void {
+  const path = 'stats/album';
+  return onSnapshot(
+    doc(db, 'stats', 'album'),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData(0);
+        return;
+      }
+      const raw = snapshot.data().totalViews;
+      onData(typeof raw === 'number' && Number.isFinite(raw) ? raw : 0);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch (wrapped) {
+        onError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
+      }
+    }
+  );
+}
+
+export async function recordHomePageView(): Promise<number> {
+  if (homeViewRecordedInMemory) {
+    return -1;
+  }
+  try {
+    if (window.sessionStorage.getItem(HOME_VIEW_SESSION_KEY) === '1') {
+      homeViewRecordedInMemory = true;
+      return -1;
+    }
+  } catch {
+    // Ignore storage access errors in restricted iframes
+  }
+
+  homeViewRecordedInMemory = true;
+  const statsRef = doc(db, 'stats', 'album');
+  const path = 'stats/album';
+
+  try {
+    const nextViews = await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(statsRef);
+      if (!snap.exists()) {
+        transaction.set(statsRef, {
+          totalViews: 1,
+          updatedAt: serverTimestamp(),
+        });
+        return 1;
+      }
+      const current = Number(snap.data().totalViews ?? 0);
+      const updated = (Number.isFinite(current) && current >= 0 ? Math.floor(current) : 0) + 1;
+      transaction.update(statsRef, {
+        totalViews: updated,
+        updatedAt: serverTimestamp(),
+      });
+      return updated;
+    });
+
+    try {
+      window.sessionStorage.setItem(HOME_VIEW_SESSION_KEY, '1');
+    } catch {
+      // Ignore storage access errors
+    }
+    return nextViews;
+  } catch (error) {
+    homeViewRecordedInMemory = false;
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 
