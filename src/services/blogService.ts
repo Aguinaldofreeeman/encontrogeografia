@@ -550,7 +550,7 @@ export function subscribeAdminInvites(
 export async function addAdminInvite(input: { email: string; displayName: string; createdByUid: string }): Promise<void> {
   const email = input.email.trim().toLowerCase().slice(0, 120);
   const displayName = input.displayName.trim().slice(0, 120);
-  if (email.length < 5 || !email.includes('@') || !email.includes('.')) throw new Error('Informe um e-mail Google válido.');
+  if (email.length < 5 || !email.includes('@') || !email.includes('.')) throw new Error('Informe um e-mail válido.');
   if (displayName.length < 1) throw new Error('Informe o nome do administrador.');
   const id = emailToInviteId(email);
   if (id.length < 5) throw new Error('O e-mail informado não possui um formato válido para convite.');

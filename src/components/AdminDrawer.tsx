@@ -637,7 +637,7 @@ export function AdminDrawer({
                 Conta sem permissão administrativa
               </h3>
               <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas (administradores principais ou e-mails liberados na administração) podem publicar fotografias e editar o álbum. Peça ao administrador principal para liberar o seu e-mail Google no Painel Admin.
+                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas (administradores principais ou e-mails liberados na administração) podem publicar fotografias e editar o álbum. Peça ao administrador principal para liberar o seu e-mail no Painel Admin.
               </p>
               <div className="bg-[var(--bg-canvas)] border border-[var(--border-hairline)] p-3 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -660,7 +660,7 @@ export function AdminDrawer({
                 onClick={handleSignOut}
                 className="px-4 py-2.5 bg-[var(--btn-active-bg)] text-[var(--btn-active-text)] text-sm font-medium hover:bg-[var(--accent-forest)] hover:text-[var(--accent-forest-contrast)] transition-colors cursor-pointer"
               >
-                Trocar de Conta Google
+                Trocar de conta
               </button>
             </div>
           ) : (
@@ -1803,7 +1803,7 @@ export function AdminDrawer({
                           Administradores Adicionais
                         </h3>
                         <p className="text-xs text-[var(--text-muted)]">
-                          Adicione colegas apenas pelo e-mail Google. Quando entrarem na Área Admin, o UID é vinculado automaticamente.
+                          Adicione colegas apenas pelo e-mail. Quando entrarem na Área Admin, o acesso é vinculado automaticamente.
                         </p>
                       </div>
 
@@ -1814,7 +1814,7 @@ export function AdminDrawer({
                           maxLength={120}
                           value={newAdminEmail}
                           onChange={(e) => setNewAdminEmail(e.target.value)}
-                          placeholder="E-mail Google do colega"
+                          placeholder="E-mail do colega"
                           className="px-3 py-2 text-xs bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
                         />
                         <div className="flex gap-2">
