@@ -82,6 +82,7 @@ export function AdminDrawer({
   const [activeTab, setActiveTab] = useState<AdminTab>('publish');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [magicLinkEmail, setMagicLinkEmail] = useState('');
 
   // Photo form state
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
@@ -184,8 +185,6 @@ export function AdminDrawer({
     setPhotoError(null);
     setActiveTab('publish');
   };
-
-  const [magicLinkEmail, setMagicLinkEmail] = useState('');
 
   const handleMagicLinkSend = async () => {
     setAuthLoading(true);
