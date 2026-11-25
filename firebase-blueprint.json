@@ -1,0 +1,409 @@
+{
+  "entities": {
+    "Photo": {
+      "title": "Photo",
+      "description": "Fotografia publicada no álbum editorial de formandos de Geografia.",
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": ["historico", "formatura", "turma"],
+          "description": "Guia editorial onde a foto é exibida."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Título curatorial da fotografia."
+        },
+        "caption": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 1200,
+          "description": "Legenda narrativa ou descrição de campo (opcional)."
+        },
+        "imageUrl": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 750000,
+          "description": "URL externa, caminho de ativo local ou imagem WebP/JPEG comprimida."
+        },
+        "yearLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Ano ou período acadêmico do registro."
+        },
+        "location": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Localidade, território ou espaço da fotografia."
+        },
+        "photographer": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 100,
+          "description": "Crédito de autoria da fotografia (opcional)."
+        },
+        "plateCode": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 30,
+          "description": "Identificador legado opcional."
+        },
+        "featured": {
+          "type": "boolean",
+          "description": "Indica se a foto pode figurar em destaque na capa."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "draft"],
+          "description": "Estado de visibilidade pública da fotografia."
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID do administrador que publicou a fotografia."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na criação."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na última atualização."
+        }
+      },
+      "required": [
+        "category",
+        "title",
+        "caption",
+        "imageUrl",
+        "yearLabel",
+        "location",
+        "photographer",
+        "featured",
+        "visibility",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comentário ou homenagem enviada para uma foto específica ou mural geral.",
+      "type": "object",
+      "properties": {
+        "photoId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID da foto comentada ou 'album' para recados gerais."
+        },
+        "targetType": {
+          "type": "string",
+          "enum": ["photo", "album"],
+          "description": "Escopo do comentário."
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Nome do autor do comentário."
+        },
+        "authorRelation": {
+          "type": "string",
+          "enum": ["Colega de Turma", "Familiar", "Docente", "Convidado"],
+          "description": "Vínculo do autor com a turma."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 800,
+          "description": "Conteúdo textual da homenagem."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved"],
+          "description": "Estado de moderação do comentário."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na criação."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na moderação."
+        }
+      },
+      "required": [
+        "photoId",
+        "targetType",
+        "authorName",
+        "authorRelation",
+        "text",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AlbumSettings": {
+      "title": "AlbumSettings",
+      "description": "Configurações editoriais completas do blog, cabeçalho, capa, guias, mural e rodapé.",
+      "type": "object",
+      "properties": {
+        "brandName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "Marca exibida no cabeçalho."
+        },
+        "navCommentsLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30,
+          "description": "Texto do link de comentários na barra de navegação e rodapé."
+        },
+        "courseTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Nome do curso."
+        },
+        "degreeLabel": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Habilitação acadêmica."
+        },
+        "classYear": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 30,
+          "description": "Turma ou ano de formatura."
+        },
+        "institution": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Nome da universidade ou departamento."
+        },
+        "heroTitle": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 140,
+          "description": "Manchete principal da capa."
+        },
+        "introText": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1000,
+          "description": "Texto editorial de abertura na capa."
+        },
+        "heroPrimaryCta": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Campo legado opcional do botão da capa."
+        },
+        "heroSecondaryCta": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "description": "Texto do link secundário da capa."
+        },
+        "statPhotosLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Rótulo do indicador de contagem de fotos."
+        },
+        "statGuidesLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Rótulo do indicador de guias temáticas."
+        },
+        "statCommentsLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Rótulo do indicador de mensagens publicadas."
+        },
+        "statInstitutionLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Rótulo do indicador de origem acadêmica."
+        },
+        "searchPlaceholder": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Texto placeholder da barra de busca do acervo."
+        },
+        "commentsKicker": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Sobretítulo da seção de comentários."
+        },
+        "commentsTitle": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Título da seção de comentários e compartilhamento."
+        },
+        "commentsIntro": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 500,
+          "description": "Descrição introdutória da seção de comentários."
+        },
+        "shareTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Título do bloco de compartilhamento."
+        },
+        "shareDescription": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 300,
+          "description": "Texto explicativo do bloco de compartilhamento."
+        },
+        "commentFormTitle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Título do formulário do mural de comentários."
+        },
+        "commentFormNotice": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 160,
+          "description": "Aviso sobre moderação exibido abaixo do formulário."
+        },
+        "footerNote": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200,
+          "description": "Linha opcional de créditos ou nota editorial no rodapé."
+        },
+        "guides": {
+          "type": "object",
+          "description": "Textos personalizados para as três guias (historico, formatura, turma), incluindo romanIndex, label, shortLabel, subtitle e description."
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID do administrador que atualizou."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na atualização."
+        }
+      },
+      "required": [
+        "brandName",
+        "navCommentsLabel",
+        "courseTitle",
+        "degreeLabel",
+        "classYear",
+        "institution",
+        "heroTitle",
+        "introText",
+        "heroSecondaryCta",
+        "statPhotosLabel",
+        "statGuidesLabel",
+        "statCommentsLabel",
+        "statInstitutionLabel",
+        "searchPlaceholder",
+        "commentsKicker",
+        "commentsTitle",
+        "commentsIntro",
+        "shareTitle",
+        "shareDescription",
+        "commentFormTitle",
+        "commentFormNotice",
+        "footerNote",
+        "guides",
+        "updatedByUid",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Registro de administradores autorizados no aplicativo.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 160,
+          "description": "E-mail verificado do administrador."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nome de exibição do administrador."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "description": "Papel administrativo."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp do servidor na criação."
+        }
+      },
+      "required": [
+        "email",
+        "displayName",
+        "role",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/photos/{photoId}": {
+      "schema": {
+        "$ref": "#/entities/Photo"
+      },
+      "description": "Coleção principal de fotografias publicadas nas guias históricas, formatura e turma."
+    },
+    "/comments/{commentId}": {
+      "schema": {
+        "$ref": "#/entities/Comment"
+      },
+      "description": "Comentários de visitantes e homenagens com fluxo de moderação (pending/approved)."
+    },
+    "/settings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/AlbumSettings"
+      },
+      "description": "Configuração institucional e editorial completa do álbum da turma."
+    },
+    "/admins/{adminUid}": {
+      "schema": {
+        "$ref": "#/entities/AdminUser"
+      },
+      "description": "Lista de administradores autorizados a publicar fotos e moderar comentários."
+    }
+  }
+}

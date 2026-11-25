@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, Cambria, "Times New Roman", serif;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --bg-canvas: #F9F7F1;
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: #F3EFE4;
+  --bg-surface-muted: #EFECE2;
+  --bg-surface-empty: #FBF9F4;
+  --bg-header: rgba(249, 247, 241, 0.95);
+  --bg-backdrop: rgba(20, 23, 20, 0.85);
+  --bg-backdrop-drawer: rgba(20, 23, 20, 0.70);
+  --bg-stage: #1B1E1B;
+  --bg-fallback-from: #EFECE2;
+  --bg-fallback-to: #E2DBC9;
+  --bg-toast: #1B1E1B;
+  --text-toast: #F9F7F1;
+
+  --border-hairline: #DDD6C5;
+  --border-subtle: #E5DFD3;
+  --border-soft: #EFECE2;
+  --border-dashed: #B7B09E;
+
+  --text-primary: #1B1E1B;
+  --text-prose: #2D312D;
+  --text-muted: #525852;
+  --text-subtle: #787D74;
+  --text-placeholder: #8A8F86;
+
+  --accent-forest: #14532D;
+  --accent-forest-hover: #0F4022;
+  --accent-forest-ink: #14532D;
+  --accent-forest-contrast: #F9F7F1;
+
+  --accent-terracotta: #9A3412;
+  --accent-ocean: #1E4D6B;
+  --accent-ocean-hover: #163B53;
+  --accent-ocean-ink: #1E4D6B;
+
+  --btn-active-bg: #1B1E1B;
+  --btn-active-text: #F9F7F1;
+
+  --feedback-success-bg: #ECFDF5;
+  --feedback-success-border: #A7F3D0;
+  --feedback-success-text: #14532D;
+  --feedback-error-bg: #FEF2F2;
+  --feedback-error-border: #FECACA;
+  --feedback-error-text: #9A3412;
+
+  --grid-line: rgba(27, 30, 27, 0.035);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg-canvas: #101512;
+  --bg-surface: #171E1A;
+  --bg-surface-alt: #1D2520;
+  --bg-surface-muted: #212A24;
+  --bg-surface-empty: #141A16;
+  --bg-header: rgba(16, 21, 18, 0.94);
+  --bg-backdrop: rgba(6, 9, 7, 0.90);
+  --bg-backdrop-drawer: rgba(6, 9, 7, 0.78);
+  --bg-stage: #0B0E0C;
+  --bg-fallback-from: #1D2520;
+  --bg-fallback-to: #141A16;
+  --bg-toast: #EDE8DC;
+  --text-toast: #101512;
+
+  --border-hairline: #2B362E;
+  --border-subtle: #242E27;
+  --border-soft: #222B25;
+  --border-dashed: #3D4B41;
+
+  --text-primary: #EDE8DC;
+  --text-prose: #D5D0C3;
+  --text-muted: #9FA89E;
+  --text-subtle: #828C81;
+  --text-placeholder: #6D776C;
+
+  --accent-forest: #1E6B42;
+  --accent-forest-hover: #268050;
+  --accent-forest-ink: #6CD49B;
+  --accent-forest-contrast: #F5F2EA;
+
+  --accent-terracotta: #E2875C;
+  --accent-ocean: #22587A;
+  --accent-ocean-hover: #2B6D96;
+  --accent-ocean-ink: #7CBCE3;
+
+  --btn-active-bg: #EDE8DC;
+  --btn-active-text: #101512;
+
+  --feedback-success-bg: #12291E;
+  --feedback-success-border: #25533C;
+  --feedback-success-text: #6CD49B;
+  --feedback-error-bg: #2C1713;
+  --feedback-error-border: #5E2E23;
+  --feedback-error-text: #F29C79;
+
+  --grid-line: rgba(237, 232, 220, 0.045);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+  }
+
+  .dark body {
+    letter-spacing: 0.005em;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-serif);
+    text-wrap: balance;
+  }
+}
+
+.topographic-grid-bg {
+  background-color: var(--bg-canvas);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

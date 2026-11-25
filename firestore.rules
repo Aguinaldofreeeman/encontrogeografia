@@ -1,0 +1,368 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'aguinaldofreeman@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidImageUrl(url) {
+      return url is string &&
+        url.size() >= 5 &&
+        url.size() <= 750000 && (
+          (url.size() >= 11 && url[0:11] == 'data:image/') ||
+          (url.size() >= 12 && url[0:12] == '/src/assets/') ||
+          (url.size() >= 8 && url[0:8] == 'https://') ||
+          (url.size() >= 7 && url[0:7] == 'http://')
+        );
+    }
+
+    function isValidPhoto(data) {
+      return data.keys().hasAll([
+        'category',
+        'title',
+        'caption',
+        'imageUrl',
+        'yearLabel',
+        'location',
+        'photographer',
+        'featured',
+        'visibility',
+        'authorUid',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'category',
+        'title',
+        'caption',
+        'imageUrl',
+        'yearLabel',
+        'location',
+        'photographer',
+        'plateCode',
+        'featured',
+        'visibility',
+        'authorUid',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.category in ['historico', 'formatura', 'turma'] &&
+      data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+      data.caption is string && data.caption.size() <= 1200 &&
+      isValidImageUrl(data.imageUrl) &&
+      data.yearLabel is string && data.yearLabel.size() >= 2 && data.yearLabel.size() <= 40 &&
+      data.location is string && data.location.size() >= 2 && data.location.size() <= 120 &&
+      data.photographer is string && data.photographer.size() <= 100 &&
+      (!('plateCode' in data) || (data.plateCode is string && data.plateCode.size() <= 30)) &&
+      data.featured is bool &&
+      data.visibility in ['public', 'draft'] &&
+      isValidId(data.authorUid) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll([
+        'photoId',
+        'targetType',
+        'authorName',
+        'authorRelation',
+        'text',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'photoId',
+        'targetType',
+        'authorName',
+        'authorRelation',
+        'text',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      isValidId(data.photoId) &&
+      data.targetType in ['photo', 'album'] &&
+      data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 80 &&
+      data.authorRelation in ['Colega de Turma', 'Familiar', 'Docente', 'Convidado'] &&
+      data.text is string && data.text.size() >= 4 && data.text.size() <= 800 &&
+      data.status in ['pending', 'approved'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidGuideMeta(guide) {
+      return guide is map &&
+        guide.keys().hasAll(['romanIndex', 'label', 'shortLabel', 'subtitle', 'description']) &&
+        guide.keys().hasOnly(['romanIndex', 'label', 'shortLabel', 'subtitle', 'description']) &&
+        guide.romanIndex is string && guide.romanIndex.size() >= 1 && guide.romanIndex.size() <= 30 &&
+        guide.label is string && guide.label.size() >= 2 && guide.label.size() <= 80 &&
+        guide.shortLabel is string && guide.shortLabel.size() >= 2 && guide.shortLabel.size() <= 30 &&
+        guide.subtitle is string && guide.subtitle.size() >= 2 && guide.subtitle.size() <= 140 &&
+        guide.description is string && guide.description.size() >= 4 && guide.description.size() <= 600;
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll([
+        'brandName',
+        'navCommentsLabel',
+        'courseTitle',
+        'degreeLabel',
+        'classYear',
+        'institution',
+        'heroTitle',
+        'introText',
+        'heroSecondaryCta',
+        'statPhotosLabel',
+        'statGuidesLabel',
+        'statCommentsLabel',
+        'statInstitutionLabel',
+        'searchPlaceholder',
+        'commentsKicker',
+        'commentsTitle',
+        'commentsIntro',
+        'shareTitle',
+        'shareDescription',
+        'commentFormTitle',
+        'commentFormNotice',
+        'footerNote',
+        'guides',
+        'updatedByUid',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'brandName',
+        'navCommentsLabel',
+        'courseTitle',
+        'degreeLabel',
+        'classYear',
+        'institution',
+        'heroTitle',
+        'introText',
+        'heroPrimaryCta',
+        'heroSecondaryCta',
+        'statPhotosLabel',
+        'statGuidesLabel',
+        'statCommentsLabel',
+        'statInstitutionLabel',
+        'searchPlaceholder',
+        'commentsKicker',
+        'commentsTitle',
+        'commentsIntro',
+        'shareTitle',
+        'shareDescription',
+        'commentFormTitle',
+        'commentFormNotice',
+        'footerNote',
+        'guides',
+        'updatedByUid',
+        'updatedAt'
+      ]) &&
+      data.brandName is string && data.brandName.size() >= 2 && data.brandName.size() <= 60 &&
+      data.navCommentsLabel is string && data.navCommentsLabel.size() >= 2 && data.navCommentsLabel.size() <= 30 &&
+      data.courseTitle is string && data.courseTitle.size() >= 3 && data.courseTitle.size() <= 120 &&
+      data.degreeLabel is string && data.degreeLabel.size() >= 3 && data.degreeLabel.size() <= 120 &&
+      data.classYear is string && data.classYear.size() >= 2 && data.classYear.size() <= 30 &&
+      data.institution is string && data.institution.size() >= 2 && data.institution.size() <= 140 &&
+      data.heroTitle is string && data.heroTitle.size() >= 4 && data.heroTitle.size() <= 140 &&
+      data.introText is string && data.introText.size() >= 10 && data.introText.size() <= 1000 &&
+      (!('heroPrimaryCta' in data) || (data.heroPrimaryCta is string && data.heroPrimaryCta.size() <= 40)) &&
+      data.heroSecondaryCta is string && data.heroSecondaryCta.size() >= 2 && data.heroSecondaryCta.size() <= 40 &&
+      data.statPhotosLabel is string && data.statPhotosLabel.size() >= 2 && data.statPhotosLabel.size() <= 50 &&
+      data.statGuidesLabel is string && data.statGuidesLabel.size() >= 2 && data.statGuidesLabel.size() <= 50 &&
+      data.statCommentsLabel is string && data.statCommentsLabel.size() >= 2 && data.statCommentsLabel.size() <= 50 &&
+      data.statInstitutionLabel is string && data.statInstitutionLabel.size() >= 2 && data.statInstitutionLabel.size() <= 50 &&
+      data.searchPlaceholder is string && data.searchPlaceholder.size() >= 2 && data.searchPlaceholder.size() <= 80 &&
+      data.commentsKicker is string && data.commentsKicker.size() >= 2 && data.commentsKicker.size() <= 80 &&
+      data.commentsTitle is string && data.commentsTitle.size() >= 3 && data.commentsTitle.size() <= 120 &&
+      data.commentsIntro is string && data.commentsIntro.size() >= 5 && data.commentsIntro.size() <= 500 &&
+      data.shareTitle is string && data.shareTitle.size() >= 2 && data.shareTitle.size() <= 80 &&
+      data.shareDescription is string && data.shareDescription.size() >= 4 && data.shareDescription.size() <= 300 &&
+      data.commentFormTitle is string && data.commentFormTitle.size() >= 2 && data.commentFormTitle.size() <= 100 &&
+      data.commentFormNotice is string && data.commentFormNotice.size() >= 2 && data.commentFormNotice.size() <= 160 &&
+      data.footerNote is string && data.footerNote.size() <= 200 &&
+      data.guides is map &&
+      data.guides.keys().hasAll(['historico', 'formatura', 'turma']) &&
+      data.guides.keys().hasOnly(['historico', 'formatura', 'turma']) &&
+      isValidGuideMeta(data.guides.historico) &&
+      isValidGuideMeta(data.guides.formatura) &&
+      isValidGuideMeta(data.guides.turma) &&
+      isValidId(data.updatedByUid) &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll([
+        'email',
+        'displayName',
+        'role',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'email',
+        'displayName',
+        'role',
+        'createdAt'
+      ]) &&
+      data.email is string && data.email.size() >= 5 && data.email.size() <= 160 &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+      data.role == 'admin' &&
+      data.createdAt is timestamp;
+    }
+
+    match /photos/{photoId} {
+      allow get: if isValidId(photoId) && (existing().visibility == 'public' || isAdmin());
+      allow list: if existing().visibility == 'public' || isBootstrappedAdmin();
+      allow create: if isValidId(photoId) &&
+        isAdmin() &&
+        isValidPhoto(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(photoId) &&
+        isAdmin() &&
+        isValidPhoto(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'category',
+          'title',
+          'caption',
+          'imageUrl',
+          'yearLabel',
+          'location',
+          'photographer',
+          'plateCode',
+          'featured',
+          'visibility',
+          'updatedAt'
+        ]);
+      allow delete: if isValidId(photoId) && isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow get: if isValidId(commentId) && (existing().status == 'approved' || isAdmin());
+      allow list: if existing().status == 'approved' || isBootstrappedAdmin();
+      allow create: if isValidId(commentId) &&
+        isValidComment(incoming()) &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          (incoming().targetType == 'album' && incoming().photoId == 'album') ||
+          (incoming().targetType == 'photo' && exists(/databases/$(database)/documents/photos/$(incoming().photoId)))
+        );
+      allow update: if isValidId(commentId) &&
+        isAdmin() &&
+        isValidComment(incoming()) &&
+        incoming().photoId == existing().photoId &&
+        incoming().targetType == existing().targetType &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'authorName',
+            'authorRelation',
+            'text',
+            'status',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isValidId(commentId) && isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'album';
+      allow list: if false;
+      allow create: if isValidId(settingId) &&
+        settingId == 'album' &&
+        isAdmin() &&
+        isValidSettings(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(settingId) &&
+        settingId == 'album' &&
+        isAdmin() &&
+        isValidSettings(incoming()) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'brandName',
+          'navCommentsLabel',
+          'courseTitle',
+          'degreeLabel',
+          'classYear',
+          'institution',
+          'heroTitle',
+          'introText',
+          'heroPrimaryCta',
+          'heroSecondaryCta',
+          'statPhotosLabel',
+          'statGuidesLabel',
+          'statCommentsLabel',
+          'statInstitutionLabel',
+          'searchPlaceholder',
+          'commentsKicker',
+          'commentsTitle',
+          'commentsIntro',
+          'shareTitle',
+          'shareDescription',
+          'commentFormTitle',
+          'commentFormNotice',
+          'footerNote',
+          'guides',
+          'updatedByUid',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (isAdmin() || (isVerifiedUser() && request.auth.uid == adminUid));
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(adminUid) &&
+        isAdmin() &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(adminUid) &&
+        isAdmin() &&
+        isValidAdminUser(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName']);
+      allow delete: if isValidId(adminUid) && isBootstrappedAdmin() && adminUid != request.auth.uid;
+    }
+  }
+}

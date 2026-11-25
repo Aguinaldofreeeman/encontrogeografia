@@ -1,0 +1,8 @@
+{
+  "name": "Atlas & Memórias — Geografia",
+  "description": "Blog editorial de fotos dos formandos de Geografia — Licenciatura Plena e Bacharelado, com guias temáticas, comentários moderados, compartilhamento social e área administrativa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
