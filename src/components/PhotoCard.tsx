@@ -40,6 +40,8 @@ export function PhotoCard({
             src={photo.imageUrl}
             alt={photo.title}
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             onError={() => setImgFailed(true)}
             className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]"
           />

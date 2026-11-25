@@ -1,5 +1,14 @@
 import { CommentRelation, PhotoCategory, PhotoVisibility } from '../types';
 
+/**
+ * Limites do upload de imagem.
+ * `imageUrlMax` limita o valor salvo no banco (URL pública ou data URL temporária antes do upload).
+ */
+export const UPLOAD_BOUNDS = {
+  maxDimension: 2000,
+  maxDataUrlChars: 3_400_000,
+};
+
 export const VALIDATION_BOUNDS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
   idMax: 128,
@@ -124,7 +133,7 @@ export async function compressImageFile(file: File): Promise<string> {
     element.src = dataUrl;
   });
 
-  const maxDimension = 1440;
+  const maxDimension = UPLOAD_BOUNDS.maxDimension;
   let targetWidth = img.naturalWidth || img.width;
   let targetHeight = img.naturalHeight || img.height;
 
@@ -148,14 +157,17 @@ export async function compressImageFile(file: File): Promise<string> {
 
   ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-  const qualities = [0.84, 0.72, 0.6, 0.48];
+  const qualities = [0.86, 0.76, 0.64, 0.52];
   for (const quality of qualities) {
     const compressed = canvas.toDataURL('image/webp', quality);
-    if (compressed.length <= VALIDATION_BOUNDS.photo.imageUrlMax && compressed.startsWith('data:image/')) {
+    if (
+      compressed.length <= UPLOAD_BOUNDS.maxDataUrlChars &&
+      compressed.startsWith('data:image/')
+    ) {
       return compressed;
     }
     const jpegFallback = canvas.toDataURL('image/jpeg', quality);
-    if (jpegFallback.length <= VALIDATION_BOUNDS.photo.imageUrlMax) {
+    if (jpegFallback.length <= UPLOAD_BOUNDS.maxDataUrlChars) {
       return jpegFallback;
     }
   }

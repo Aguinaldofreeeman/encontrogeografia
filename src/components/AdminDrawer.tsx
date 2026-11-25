@@ -1,6 +1,7 @@
-import { type User as FirebaseUser, signInWithPopup, signOut } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import {
   CheckCircle2,
+  ChevronRight,
   Copy,
   Edit3,
   Eye,
@@ -20,8 +21,9 @@ import {
   X,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { CATEGORY_META, DEFAULT_SETTINGS } from '../data/seedData';
-import { BOOTSTRAPPED_ADMIN_EMAIL, auth, googleProvider } from '../lib/firebase';
+import { CATEGORY_META, DEFAULT_SEED_PHOTOS, DEFAULT_SETTINGS } from '../data/seedData';
+import { uploadPhotoToStorage } from '../lib/storage';
+import { isBootstrappedAdminEmail, supabase } from '../lib/supabase';
 import { compressImageFile, isAllowedImageUrl, VALIDATION_BOUNDS } from '../lib/validation';
 import {
   addAdminInvite,
@@ -32,8 +34,7 @@ import {
   removeAdminInvite,
   removeAdminUser,
   saveAlbumSettings,
-  saveSeedPhotoToFirestore,
-  seedInitialAlbumIfEmpty,
+  saveSeedPhoto,
   subscribeAdminInvites,
   subscribeAdmins,
   updateCommentContent,
@@ -54,7 +55,7 @@ import {
 interface AdminDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  user: FirebaseUser | null;
+  user: User | null;
   isAdmin: boolean;
   isBootstrappedAdmin: boolean;
   photos: PhotoItem[];
@@ -97,6 +98,7 @@ export function AdminDrawer({
   const [visibility, setVisibility] = useState<PhotoVisibility>('public');
   const [compressing, setCompressing] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Comment edit state
@@ -121,6 +123,7 @@ export function AdminDrawer({
 
   // Seed action state
   const [seeding, setSeeding] = useState(false);
+  const [seedProgress, setSeedProgress] = useState<string | null>(null);
 
   useEffect(() => {
     setSettingsForm(settings);
@@ -182,22 +185,40 @@ export function AdminDrawer({
     setActiveTab('publish');
   };
 
-  const handleGoogleSignIn = async () => {
+  const [magicLinkEmail, setMagicLinkEmail] = useState('');
+
+  const handleMagicLinkSend = async () => {
     setAuthLoading(true);
     setAuthError(null);
-    try {
-      await signInWithPopup(auth, googleProvider);
-      onNotify('Sessão Google conectada.');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Falha ao autenticar com o Google.';
-      setAuthError(msg);
-    } finally {
+    if (!magicLinkEmail.trim()) {
+      setAuthError('Informe seu e-mail.');
       setAuthLoading(false);
+      return;
     }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: magicLinkEmail.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+      // Magic link enviado; avise o usuário
+      onNotify('Link mágico enviado para o e-mail. Verifique a caixa de entrada.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha ao enviar link mágico.';
+      setAuthError(msg);
+    }
+    setAuthLoading(false);
+  };
+
+  const handleMagicLinkCancel = () => {
+    setMagicLinkEmail('');
+    setAuthError(null);
   };
 
   const handleSignOut = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
     onNotify('Sessão administrativa encerrada.');
   };
 
@@ -222,18 +243,35 @@ export function AdminDrawer({
     if (!user || !isAdmin) return;
     setPhotoError(null);
 
-    if (!isAllowedImageUrl(imageUrl)) {
+    const isPendingUpload = imageUrl.trim().startsWith('data:image/');
+    if (!isPendingUpload && !isAllowedImageUrl(imageUrl)) {
       setPhotoError('Adicione uma imagem por upload ou informe uma URL válida (https://).');
       return;
     }
 
     setSavingPhoto(true);
     try {
+      let finalImageUrl = imageUrl.trim();
+
+      if (isPendingUpload) {
+        setUploading(true);
+        const uploaded = await uploadPhotoToStorage(finalImageUrl, {
+          category,
+          title: title || 'fotografia',
+        });
+        finalImageUrl = uploaded.url;
+        setImageUrl(uploaded.url);
+      }
+
+      if (!isAllowedImageUrl(finalImageUrl)) {
+        throw new Error('A URL retornada pelo armazenamento não é válida.');
+      }
+
       const payload = {
         category,
         title,
         caption,
-        imageUrl,
+        imageUrl: finalImageUrl,
         yearLabel,
         location,
         photographer,
@@ -241,13 +279,13 @@ export function AdminDrawer({
         visibility,
       };
       if (editingPhotoId && editingIsSeed) {
-        await saveSeedPhotoToFirestore(user.uid, editingPhotoId, payload);
-        onNotify('Prancha inicial atualizada e gravada no Firestore.');
+        await saveSeedPhoto(user.id, editingPhotoId, payload);
+        onNotify('Prancha inicial atualizada e gravada no banco.');
       } else if (editingPhotoId) {
         await updatePhoto(editingPhotoId, payload);
         onNotify('Fotografia atualizada no acervo.');
       } else {
-        await createPhoto(user.uid, payload);
+        await createPhoto(user.id, payload);
         onNotify('Nova fotografia publicada no álbum.');
       }
       resetPhotoForm();
@@ -255,6 +293,7 @@ export function AdminDrawer({
     } catch (err) {
       setPhotoError(err instanceof Error ? err.message : 'Erro ao salvar fotografia.');
     } finally {
+      setUploading(false);
       setSavingPhoto(false);
     }
   };
@@ -262,12 +301,55 @@ export function AdminDrawer({
   const handleSeedAlbum = async () => {
     if (!user || !isAdmin) return;
     setSeeding(true);
+    setPhotoError(null);
+    setSeedProgress(null);
     try {
-      await seedInitialAlbumIfEmpty(user.uid);
-      onNotify('Acervo inicial de Geografia salvo no Firestore.');
+      const prepared: { seed: (typeof DEFAULT_SEED_PHOTOS)[number]; imageUrl: string }[] = [];
+
+      for (let index = 0; index < DEFAULT_SEED_PHOTOS.length; index += 1) {
+        const seed = DEFAULT_SEED_PHOTOS[index];
+        setSeedProgress(`Enviando ${index + 1} de ${DEFAULT_SEED_PHOTOS.length} ao armazenamento...`);
+
+        const response = await fetch(seed.imageUrl);
+        if (!response.ok) {
+          throw new Error(`Não foi possível ler a imagem inicial "${seed.title}".`);
+        }
+        const blob = await response.blob();
+        const file = new File([blob], `${seed.id}.jpg`, {
+          type: blob.type || 'image/jpeg',
+        });
+        const dataUrl = await compressImageFile(file);
+        const uploaded = await uploadPhotoToStorage(dataUrl, {
+          category: seed.category,
+          title: seed.title,
+        });
+
+        prepared.push({ seed, imageUrl: uploaded.url });
+      }
+
+      setSeedProgress('Gravando as fichas no banco...');
+      for (const { seed, imageUrl } of prepared) {
+        await saveSeedPhoto(user.id, seed.id, {
+          category: seed.category,
+          title: seed.title,
+          caption: seed.caption,
+          imageUrl,
+          yearLabel: seed.yearLabel,
+          location: seed.location,
+          photographer: seed.photographer,
+          featured: seed.featured,
+          visibility: seed.visibility,
+        });
+      }
+
+      onNotify('As pranchas iniciais foram migradas para o Supabase.');
     } catch (err) {
-      onNotify(err instanceof Error ? err.message : 'Falha ao publicar acervo inicial.');
+      const message =
+        err instanceof Error ? err.message : 'Falha ao migrar as pranchas iniciais.';
+      setPhotoError(message);
+      onNotify(message);
     } finally {
+      setSeedProgress(null);
       setSeeding(false);
     }
   };
@@ -329,7 +411,7 @@ export function AdminDrawer({
   const handleDeletePhoto = async (photoId: string) => {
     try {
       await deletePhoto(photoId);
-      onNotify('Fotografia excluída do Firestore.');
+      onNotify('Fotografia excluída do banco.');
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao excluir fotografia.');
     }
@@ -341,7 +423,7 @@ export function AdminDrawer({
     setSettingsError(null);
     setSavingSettings(true);
     try {
-      await saveAlbumSettings(user.uid, settingsForm);
+      await saveAlbumSettings(user.id, settingsForm);
       onNotify('Todos os trechos do blog foram atualizados.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar configurações.';
@@ -377,7 +459,7 @@ export function AdminDrawer({
       await addAdminInvite({
         email: newAdminEmail,
         displayName: newAdminName,
-        createdByUid: user.uid,
+        createdByUid: user.id,
       });
       setNewAdminEmail('');
       setNewAdminName('');
@@ -412,7 +494,7 @@ export function AdminDrawer({
   const handleCopyUid = async () => {
     if (!user) return;
     try {
-      await navigator.clipboard.writeText(user.uid);
+      await navigator.clipboard.writeText(user.id);
       onNotify('Seu UID foi copiado.');
     } catch {
       onNotify('Não foi possível copiar o UID.');
@@ -472,10 +554,10 @@ export function AdminDrawer({
                   Autenticação Necessária
                 </p>
                 <h3 className="font-serif text-2xl font-semibold text-[var(--text-primary)]">
-                  Acesse com sua conta Google autorizada
+                  Acesse com seu e-mail
                 </h3>
                 <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                  O painel permite publicar novas fotografias por upload ou URL, editar fichas de campo, moderar comentários recebidos e ajustar os dados da turma de Geografia.
+                  Receba um link mágico no seu e-mail para acessar o painel administrativo.
                 </p>
               </div>
 
@@ -485,16 +567,66 @@ export function AdminDrawer({
                 </p>
               )}
 
-              <button
-                type="button"
-                disabled={authLoading}
-                onClick={handleGoogleSignIn}
-                className="w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-sm font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer"
-              >
-                <LogIn className="w-4 h-4" />
-                {authLoading ? 'Conectando...' : 'Entrar com Google'}
-              </button>
-            </div>
+              {authLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <svg
+                    className="animate-spin w-4 h-4 text-[var(--accent-forest)]"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8 8 8 0 018 8 8 8 0 01-8 8 8 8 0 01-8-8zm0 0a4 4 0 100-8 4 4 0 000 8z"
+                    />
+                  </svg>
+                  <span className="ml-2">Enviando...</span>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="email"
+                    value={magicLinkEmail}
+                    onChange={(e) => setMagicLinkEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[var(--bg-canvas)] border border-[var(--border-hairline)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--accent-forest-ink)]"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMagicLinkSend}
+                    disabled={authLoading}
+                    className="w-full mt-2 inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-sm font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                    {authLoading ? 'Enviando...' : 'Enviar link mágico'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMagicLinkCancel}
+                    className="w-full mt-2 text-xs text-[var(--text-muted)] border border-[var(--border-hairline)] py-1.5 rounded text-center hover:border-[var(--accent-forest-ink)] transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              {authError && (
+                <p className="text-xs mt-2 bg-[var(--feedback-error-bg)] border border-[var(--feedback-error-border)] text-[var(--feedback-error-text)] p-3">
+                  {authError}
+                </p>
+              )}
+
+              </div>
           ) : !isAdmin ? (
             <div className="bg-[var(--bg-surface)] border border-[var(--border-hairline)] p-8 max-w-lg mx-auto my-8 space-y-4">
               <div className="flex items-center gap-2 text-[var(--accent-terracotta)]">
@@ -505,14 +637,14 @@ export function AdminDrawer({
                 Conta sem permissão administrativa
               </h3>
               <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas ({BOOTSTRAPPED_ADMIN_EMAIL} ou e-mails liberados na administração) podem publicar fotografias e editar o álbum. Peça ao administrador principal para liberar o seu e-mail Google no Painel Admin.
+                Você está conectado como <strong>{user.email}</strong>. Apenas contas autorizadas (administradores principais ou e-mails liberados na administração) podem publicar fotografias e editar o álbum. Peça ao administrador principal para liberar o seu e-mail Google no Painel Admin.
               </p>
               <div className="bg-[var(--bg-canvas)] border border-[var(--border-hairline)] p-3 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                     Seu UID (para solicitar liberação)
                   </p>
-                  <p className="font-mono text-xs text-[var(--text-primary)] truncate">{user.uid}</p>
+                  <p className="font-mono text-xs text-[var(--text-primary)] truncate">{user.id}</p>
                 </div>
                 <button
                   type="button"
@@ -533,15 +665,15 @@ export function AdminDrawer({
             </div>
           ) : (
             <>
-              {/* Seed banner when Firestore has no photos yet */}
+              {/* Seed banner when the database has no photos yet */}
               {!hasRemotePhotos && (
                 <div className="bg-[var(--bg-surface-muted)] border border-[var(--border-hairline)] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      O banco Firestore ainda está vazio
+                      O banco de dados ainda está vazio
                     </p>
                     <p className="text-xs text-[var(--text-muted)]">
-                      Deseja gravar as 6 pranchas iniciais de Geografia no banco de dados para poder editá-las ou receber comentários individuais?
+                      Deseja gravar as 6 pranchas iniciais de Geografia no Supabase para poder editá-las ou receber comentários individuais?
                     </p>
                   </div>
                   <button
@@ -634,7 +766,7 @@ export function AdminDrawer({
 
                   {editingPhotoId && editingIsSeed && (
                     <p className="text-xs bg-[var(--bg-surface-muted)] border border-[var(--border-hairline)] text-[var(--text-muted)] p-3">
-                      Esta fotografia faz parte da prévia inicial do álbum. Ao salvar, ela será gravada no Firestore para edição permanente.
+                      Esta fotografia faz parte da prévia inicial do álbum. Ao salvar, ela será gravada no banco para edição permanente.
                     </p>
                   )}
 
@@ -696,7 +828,7 @@ export function AdminDrawer({
                             : 'Clique para selecionar uma foto do computador ou celular'}
                         </span>
                         <span className="text-xs text-[var(--text-muted)]">
-                          Redimensionamento automático até 1440px (JPG, PNG ou WebP)
+                          Redimensionamento automático até 2000px (JPG, PNG ou WebP)
                         </span>
                         <input
                           type="file"
@@ -831,14 +963,16 @@ export function AdminDrawer({
 
                     <button
                       type="submit"
-                      disabled={savingPhoto || compressing}
+                      disabled={savingPhoto || compressing || uploading}
                       className="px-5 py-2.5 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-sm font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer whitespace-nowrap"
                     >
-                      {savingPhoto
-                        ? 'Salvando...'
-                        : editingPhotoId
-                          ? 'Salvar Alterações'
-                          : 'Publicar Fotografia'}
+                      {uploading
+                        ? 'Enviando ao armazenamento...'
+                        : savingPhoto
+                          ? 'Salvando...'
+                          : editingPhotoId
+                            ? 'Salvar Alterações'
+                            : 'Publicar Fotografia'}
                     </button>
                   </div>
 
@@ -856,7 +990,8 @@ export function AdminDrawer({
                   {!hasRemotePhotos && photos.length > 0 && (
                     <div className="bg-[var(--bg-surface-muted)] border border-[var(--border-hairline)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                        Você já pode clicar em <strong>Editar</strong> em qualquer uma das 6 pranchas iniciais abaixo para salvá-la diretamente no banco, ou inicializar todas de uma vez.
+                        As pranchas iniciais ainda usam as imagens do próprio site. Envie as 6
+                        para o Supabase Storage e grave as fichas no banco de uma só vez.
                       </p>
                       <button
                         type="button"
@@ -865,7 +1000,7 @@ export function AdminDrawer({
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[var(--accent-forest)] text-[var(--accent-forest-contrast)] text-xs font-medium hover:bg-[var(--accent-forest-hover)] disabled:opacity-60 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        {seeding ? 'Salvando...' : 'Inicializar Todas no Banco'}
+                        {seeding ? seedProgress || 'Enviando...' : 'Migrar 6 Pranchas para o Supabase'}
                       </button>
                     </div>
                   )}
@@ -1716,7 +1851,7 @@ export function AdminDrawer({
                                   {adm.email} · <span className="font-mono text-[var(--accent-forest-ink)]">UID vinculado</span>
                                 </p>
                               </div>
-                              {adm.uid !== user.uid && (
+                              {adm.uid !== user.id && (
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveAdmin(adm.uid, adm.email)}
