@@ -277,7 +277,7 @@ function AlbumContent() {
           </span>
           <div className="min-w-0">
             <strong className="block font-serif text-base font-semibold leading-tight text-white truncate">{settings.brandName}</strong>
-            <span className="block text-[11px] text-[var(--sidebar-text-muted)] truncate mt-0.5">{settings.courseTitle} · {settings.classYear}</span>
+            <span className="block text-[11px] text-[var(--sidebar-text-muted)] truncate mt-0.5">{settings.courseTitle} · 1996</span>
           </div>
         </button>
         <button type="button" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} className="md:hidden p-1.5 rounded-lg text-[var(--sidebar-text-muted)] hover:text-white hover:bg-[var(--sidebar-hover)] cursor-pointer">
