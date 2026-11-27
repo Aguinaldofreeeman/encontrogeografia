@@ -1629,7 +1629,7 @@ export function AdminDrawer({
                       </label>
                     </div>
 
-                    {/* Section 3: 3 Guides */}
+                    {/* Section 3: 4 Guides */}
                     <div className="space-y-4 pt-4 border-t border-[var(--border-soft)]">
                       <h4 className="font-mono text-xs uppercase tracking-widest text-[var(--accent-terracotta)]">
                         Textos das Quatro Guias do Acervo

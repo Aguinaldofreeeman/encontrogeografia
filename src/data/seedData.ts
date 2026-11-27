@@ -1,6 +1,6 @@
-import { AlbumSettings, CategoryMeta, PhotoItem } from '../types';
+import { AlbumSettings, CategoryMeta, PhotoCategory, PhotoItem } from '../types';
 
-export const CATEGORY_META: Record<'historico' | 'formatura' | 'turma' | 'professores', CategoryMeta> = {
+export const CATEGORY_META: Record<PhotoCategory, CategoryMeta> = {
   historico: {
     id: 'historico',
     label: 'Fotos Históricas do Curso',
