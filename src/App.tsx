@@ -347,7 +347,7 @@ function AlbumContent() {
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-stretch">
                     <div className="lg:col-span-6 flex flex-col justify-between space-y-6">
                       <div className="space-y-4">
-                        <p className="font-mono text-xs uppercase tracking-widest text-[var(--accent-terracotta)]">{settings.courseTitle} · {settings.degreeLabel} · {settings.classYear}</p>
+                        <p className="font-mono text-xs uppercase tracking-widest text-[var(--accent-terracotta)]">LICENCIATURA E BACHARELADO EM GEOGRAFIA - 1996</p>
                         <h1 className="font-serif text-3xl sm:text-4xl lg:text-[3rem] font-semibold text-[var(--text-primary)] leading-[1.06] tracking-tight">{settings.heroTitle}</h1>
                         <p className="text-sm sm:text-base text-[var(--text-muted)] leading-relaxed max-w-xl">{settings.introText}</p>
                       </div>
