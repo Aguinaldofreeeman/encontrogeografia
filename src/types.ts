@@ -1,4 +1,4 @@
-export type PhotoCategory = 'historico' | 'formatura' | 'turma';
+export type PhotoCategory = 'historico' | 'formatura' | 'turma' | 'professores';
 
 export type PhotoVisibility = 'public' | 'draft';
 

@@ -238,6 +238,7 @@ function normalizeSettings(data: any): AlbumSettings {
       historico: mergeGuideConfig(rawGuides.historico, DEFAULT_SETTINGS.guides.historico),
       formatura: mergeGuideConfig(rawGuides.formatura, DEFAULT_SETTINGS.guides.formatura),
       turma: mergeGuideConfig(rawGuides.turma, DEFAULT_SETTINGS.guides.turma),
+      professores: mergeGuideConfig(rawGuides.professores, DEFAULT_SETTINGS.guides.professores),
     },
   };
 }
@@ -459,6 +460,7 @@ export async function saveAlbumSettings(authorUid: string, settings: AlbumSettin
       historico: sanitizeGuide(settings.guides.historico),
       formatura: sanitizeGuide(settings.guides.formatura),
       turma: sanitizeGuide(settings.guides.turma),
+      professores: sanitizeGuide(settings.guides.professores),
     },
   };
 
@@ -471,10 +473,10 @@ export async function saveAlbumSettings(authorUid: string, settings: AlbumSettin
     payload.commentsIntro, payload.shareTitle, payload.shareDescription, payload.commentFormTitle, payload.commentFormNotice,
   ];
   if (required.some((v) => !String(v).trim())) throw new Error('Preencha todos os campos obrigatórios de texto do blog corretamente.');
-  for (const key of ['historico', 'formatura', 'turma'] as const) {
+  for (const key of ['historico', 'formatura', 'turma', 'professores'] as const) {
     const g = payload.guides[key];
     if ([g.romanIndex, g.label, g.shortLabel, g.subtitle, g.description].some((v) => !v.trim())) {
-      throw new Error('Preencha todos os índices, títulos, subtítulos e descrições das três guias.');
+      throw new Error('Preencha todos os índices, títulos, subtítulos e descrições das quatro guias.');
     }
   }
 

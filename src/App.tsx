@@ -1,4 +1,4 @@
-import { Compass, FileDown, GraduationCap, Home, Landmark, MapPin, Menu, MessageSquare, Moon, Search, ShieldCheck, Sun, Users, X } from 'lucide-react';
+import { BookOpen, Compass, FileDown, GraduationCap, Home, Landmark, MapPin, Menu, MessageSquare, Moon, Search, ShieldCheck, Sun, Users, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { AdminDrawer } from './components/AdminDrawer';
@@ -23,12 +23,13 @@ import { AlbumSettings, CommentItem, PhotoCategory, PhotoItem } from './types';
 
 type AppView = 'inicio' | PhotoCategory | 'comentarios';
 
-const CATEGORY_ORDER: PhotoCategory[] = ['historico', 'formatura', 'turma'];
+const CATEGORY_ORDER: PhotoCategory[] = ['historico', 'formatura', 'turma', 'professores'];
 
 const CATEGORY_ICONS: Record<PhotoCategory, typeof Landmark> = {
   historico: Landmark,
   formatura: GraduationCap,
   turma: Users,
+  professores: BookOpen,
 };
 
 function AlbumContent() {
@@ -59,10 +60,10 @@ function AlbumContent() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
 
-  const activeCategory: PhotoCategory =
-    activeView === 'historico' || activeView === 'formatura' || activeView === 'turma'
-      ? activeView
-      : 'historico';
+  const activeCategory: PhotoCategory = activeView && (CATEGORY_ORDER as readonly string[]).includes(activeView)
+    ? (activeView as PhotoCategory)
+    : 'historico';
+  const isCategoryView = CATEGORY_ORDER.includes(activeView as PhotoCategory);
 
   const showToast = (msg: string) => setToast(msg);
 
@@ -371,7 +372,7 @@ function AlbumContent() {
                   </div>
                   <div className="mt-8 pt-6 border-t border-[var(--border-hairline)] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
                     <div><p className="font-mono text-2xl font-medium text-[var(--text-primary)] tabular-nums">{String(publicPhotos.length).padStart(2, '0')}</p><p className="text-xs text-[var(--text-muted)] mt-1">{settings.statPhotosLabel}</p></div>
-                    <div><p className="font-mono text-2xl font-medium text-[var(--text-primary)] tabular-nums">03</p><p className="text-xs text-[var(--text-muted)] mt-1">{settings.statGuidesLabel}</p></div>
+                    <div><p className="font-mono text-2xl font-medium text-[var(--text-primary)] tabular-nums">04</p><p className="text-xs text-[var(--text-muted)] mt-1">{settings.statGuidesLabel}</p></div>
                     <div><p className="font-mono text-2xl font-medium text-[var(--text-primary)] tabular-nums">{String(approvedComments.length).padStart(2, '0')}</p><p className="text-xs text-[var(--text-muted)] mt-1">{settings.statCommentsLabel}</p></div>
                     <div><p className="font-mono text-2xl font-medium text-[var(--text-primary)] tabular-nums">{totalViews === null ? '—' : String(totalViews).padStart(2, '0')}</p><p className="text-xs text-[var(--text-muted)] mt-1">{settings.statViewsLabel || DEFAULT_SETTINGS.statViewsLabel}</p></div>
                     <div className="col-span-2 sm:col-span-2 lg:col-span-1"><p className="font-mono text-sm font-medium text-[var(--accent-forest-ink)] flex items-center gap-1.5 pt-1"><MapPin className="w-4 h-4 shrink-0" /><span className="truncate">{settings.institution}</span></p><p className="text-xs text-[var(--text-muted)] mt-1.5">{settings.statInstitutionLabel}</p></div>
@@ -380,7 +381,7 @@ function AlbumContent() {
               </section>
             )}
 
-            {(activeView === 'historico' || activeView === 'formatura' || activeView === 'turma') && (
+            {isCategoryView && (
               <section className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10 space-y-6">
                 <div className="border-b border-[var(--border-hairline)] pb-6 space-y-2">
                   <p className="font-mono text-xs uppercase tracking-widest text-[var(--accent-terracotta)]">{activeGuide.romanIndex || activeCategoryMeta.romanIndex} · {activeGuide.subtitle}</p>
