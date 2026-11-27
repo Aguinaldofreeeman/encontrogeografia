@@ -845,6 +845,9 @@ export function AdminDrawer({
                       <option value="turma">
                         {settings.guides?.turma?.label || CATEGORY_META.turma.label}
                       </option>
+                      <option value="professores">
+                        {settings.guides?.professores?.label || CATEGORY_META.professores.label}
+                      </option>
                     </select>
                   </label>
 
@@ -1383,7 +1386,7 @@ export function AdminDrawer({
                           Edição Completa de Todos os Trechos do Blog
                         </h3>
                         <p className="text-xs text-[var(--text-muted)]">
-                          Personalize marca, capa, nomes e descrições das três guias e seção de comentários.
+                          Personalize marca, capa, nomes e descrições das quatro guias e seção de comentários.
                         </p>
                       </div>
                       <button
@@ -1629,10 +1632,10 @@ export function AdminDrawer({
                     {/* Section 3: 3 Guides */}
                     <div className="space-y-4 pt-4 border-t border-[var(--border-soft)]">
                       <h4 className="font-mono text-xs uppercase tracking-widest text-[var(--accent-terracotta)]">
-                        Textos das Três Guias do Acervo
+                        Textos das Quatro Guias do Acervo
                       </h4>
 
-                      {(['historico', 'formatura', 'turma'] as PhotoCategory[]).map((cat) => {
+                      {(['historico', 'formatura', 'turma', 'professores'] as PhotoCategory[]).map((cat) => {
                         const base = CATEGORY_META[cat];
                         const guide = settingsForm.guides[cat];
                         return (
