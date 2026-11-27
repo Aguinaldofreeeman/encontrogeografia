@@ -14,7 +14,7 @@ export const VALIDATION_BOUNDS = {
   idPattern: /^[a-zA-Z0-9_-]+$/,
   idMax: 128,
   photo: {
-    categories: ['historico', 'formatura', 'turma'] as readonly PhotoCategory[],
+    categories: ['historico', 'formatura', 'turma', 'professores'] as readonly PhotoCategory[],
     visibilities: ['public', 'draft'] as readonly PhotoVisibility[],
     titleMin: 2,
     titleMax: 140,
