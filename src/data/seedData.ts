@@ -1,6 +1,6 @@
-import { AlbumSettings, CategoryMeta, PhotoItem } from '../types';
+import { AlbumSettings, CategoryMeta, PhotoCategory, PhotoItem } from '../types';
 
-export const CATEGORY_META: Record<'historico' | 'formatura' | 'turma', CategoryMeta> = {
+export const CATEGORY_META: Record<PhotoCategory, CategoryMeta> = {
   historico: {
     id: 'historico',
     label: 'Fotos Históricas do Curso',
@@ -27,6 +27,15 @@ export const CATEGORY_META: Record<'historico' | 'formatura' | 'turma', Category
     subtitle: 'Sociedade, Companheirismo e Retratos Coletivos',
     description:
       'Retratos de grupo no departamento, pausas entre mapas e leituras críticas da cidade e do campo, celebrando as amizades que seguem para além do campus.',
+  },
+  professores: {
+    id: 'professores',
+    label: 'Fotos dos Professores',
+    shortLabel: 'Professores',
+    romanIndex: 'Prancha IV',
+    subtitle: 'Docência, Orientação e Legado Acadêmico',
+    description:
+      'Retratos e registros dos docentes que conduziram aulas de campo, seminários e pesquisas, preservando o vínculo entre quem ensinou e a turma que se formou.',
   },
 };
 
@@ -78,6 +87,13 @@ export const DEFAULT_SETTINGS: AlbumSettings = {
       shortLabel: CATEGORY_META.turma.shortLabel,
       subtitle: CATEGORY_META.turma.subtitle,
       description: CATEGORY_META.turma.description,
+    },
+    professores: {
+      romanIndex: CATEGORY_META.professores.romanIndex,
+      label: CATEGORY_META.professores.label,
+      shortLabel: CATEGORY_META.professores.shortLabel,
+      subtitle: CATEGORY_META.professores.subtitle,
+      description: CATEGORY_META.professores.description,
     },
   },
 };

@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import { CATEGORY_META } from '../data/seedData';
 import { AlbumSettings, PhotoCategory, PhotoItem } from '../types';
 
-const CATEGORY_SEQUENCE: PhotoCategory[] = ['historico', 'formatura', 'turma'];
+const CATEGORY_SEQUENCE: PhotoCategory[] = ['historico', 'formatura', 'turma', 'professores'];
 
 interface LoadedImage {
   dataUrl: string;
